@@ -144,9 +144,8 @@ void handle_request(struct server_app *app, int client_socket) {
 
     // TODO: Parse the header and extract essential fields, e.g. file name
     // Hint: if the requested path is "/" (root), default to index.html
-    printf("%s", request); // print out of HTTP request message form server
+    printf("%s", request); // print out of HTTP request message from server
 
-    char file_name[] = "index.html";
     char *curr = request;
     char method[5];
     int i;
@@ -155,17 +154,18 @@ void handle_request(struct server_app *app, int client_socket) {
     }
     method[i] = '\0';
     i++;
-    printf("%s\n", method); // print out request type
+    // printf("%s\n", method); // print out request type
 
+    char file_name[] = "./index.html";
     if (curr[i + 1] != ' ') {
         int j;
-        for (j = 0; curr[i] != ' '; i++, j++) {
+        for (j = 1; curr[i] != ' '; i++, j++) {
             file_name[j] = curr[i];
         }
         file_name[j] = '\0';
     }
     i++;
-    printf("%s\n", file_name); // print out file path
+    // printf("%s\n", file_name); // print out file path
 
     // TODO: Implement proxy and call the function under condition
     // specified in the spec
@@ -188,11 +188,56 @@ void serve_local_file(int client_socket, const char *path) {
     // (When the requested file does not exist):
     // * Generate a correct response
 
-    char response[] = "HTTP/1.0 200 OK\r\n"
-                      "Content-Type: text/plain; charset=UTF-8\r\n"
-                      "Content-Length: 15\r\n"
-                      "\r\n"
-                      "Sample response";
+    // open file
+    FILE* fptr;
+    if ((fptr = fopen(path, "rb")) == NULL) {
+        // ERROR - can't open file
+        printf("FILE OPENING ERROR");
+        exit(1);
+    }
+
+    // get file length
+    fseek(fptr, 0, SEEK_END);
+    long flen = ftell(fptr);
+    rewind(fptr);
+    
+    // get data from file
+    char* data_buffer;
+    if ((data_buffer = malloc((flen) * sizeof(char))) == NULL) {
+        // ERROR - malloc failed
+        printf("MEMORY ALLOCATION ERROR");
+        exit(1);
+    }
+    while (fread(data_buffer, flen, sizeof(char), fptr) != 0) {
+        // keep reading
+    }
+    printf("file data: %s\n", data_buffer);
+    fclose(fptr);
+
+    char *filelen;
+    sprintf(filelen, "%ld", flen);
+
+    char* response;
+    if ((response = malloc(BUFFER_SIZE)) == NULL) {
+        // ERROR - malloc failed
+        printf("MEMORY ALLOCATION ERROR");
+        exit(1);
+    }
+
+    char begin_response[] = 
+                    "HTTP/1.1 200 OK\r\n"
+                    "Content-Type: text/plain; charset=UTF-8\r\n"
+                    "Content-Type: text/html; charset=UTF-8\r\n"
+                    "Content-Type: image/jpg\r\n"
+                    "Content-Length: ";
+    char temp[] = "\r\n\r\n";
+
+    strcat(response, begin_response);
+    strcat(response, filelen);
+    strcat(response, temp);
+    strcat(response, data_buffer);
+
+    printf("%s", response);
 
     send(client_socket, response, strlen(response), 0);
 }
