@@ -237,13 +237,13 @@ void serve_local_file(int client_socket, const char *path) {
         printf("MEMORY ALLOCATION ERROR");
         exit(1);
     }
-    // while (fread(data_buffer, flen, sizeof(char), fptr) != 0) {
-    //     // keep reading
-    // }
-    unsigned int i = 0;
-    while (fread(&data_buffer[i], 1, 1, fptr) == 1) {
-        i++;
+    while (fread(data_buffer, flen, sizeof(char), fptr) != 0) {
+        // keep reading
     }
+    // unsigned int i = 0;
+    // while (fread(&data_buffer[i], 1, 1, fptr) == 1) {
+    //     i++;
+    // }
     printf("file data: %s\n", data_buffer);
     fclose(fptr);
 
