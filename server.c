@@ -8,6 +8,10 @@
 #include <getopt.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/utsname.h>
+#include <fcntl.h>
+#include <time.h>
 
 #define BUFFER_SIZE 1024
 #define DEFAULT_SERVER_PORT 8081
@@ -31,7 +35,7 @@ struct server_app {
 
 void parse_args(int argc, char *argv[], struct server_app *app);
 void handle_request(struct server_app *app, int client_socket);
-void serve_local_file(int client_socket, const char *path);
+void serve_local_file(int client_socket, const char *method, const char *path, const char *type);
 void proxy_remote_file(struct server_app *app, int client_socket, const char *path);
 
 int main(int argc, char *argv[])
@@ -139,50 +143,46 @@ void handle_request(struct server_app *app, int client_socket) {
 
     // TODO: Parse the header and extract essential fields, e.g. file name
     // Hint: if the requested path is "/" (root), default to index.html
+
     printf("%s", request); // print out of HTTP request message from server
 
-    // get request method
-    char *curr = request;
-    char method[5];
-    int i;
-    for (i = 0; curr[i] != ' '; i++) {
-        method[i] = curr[i];
-    }
-    method[i] = '\0';
-    i++;
 
-    // get file path
-    char file_name[] = "./index.html";
-    if (curr[i + 1] != ' ') {
-        int j;
-        for (j = 1; curr[i] != ' '; i++, j++) {
-            file_name[j] = curr[i];
-        }
-        file_name[j] = '\0';
-    }
-    i++;
+    char* component;
 
-    // // get HTTP protocol
-    // while (curr[i] != '/') {
-    //     i++;
-    // }
-    // i++;
-    // char http_prot[4];
-    // for (int k = 0; k < 3; i++, k++) {
-    //     http_prot[k] = curr[i];
-    // }
-    // http_prot[3] = '\0';
+    // get http method
+    char http_method[BUFFER_SIZE];
+	component = strtok(request, " \r\n");
+	strcpy(http_method, component);
+
+    // get file path name
+    char file_name[BUFFER_SIZE];
+	component = strtok(NULL, " \r\n");
+    strcpy(file_name, ".");
+	strcat(file_name, component);
+    if (strcmp(file_name, "./") == 0) {
+        strcpy(file_name, "./index.html");
+    }
+
+    // get http type
+    char http_type[BUFFER_SIZE];
+	component = strtok(NULL, " \r\n");
+	strcpy(http_type, component);
+
+    // print out http header components
+    printf("HTTP method: %s\n", http_method);
+	printf("file name: %s\n", file_name);
+	printf("HTTP type: %s\n", http_type);
 
     // TODO: Implement proxy and call the function under condition
     // specified in the spec
     // if (need_proxy(...)) {
     //    proxy_remote_file(app, client_socket, file_name);
     // } else {
-    serve_local_file(client_socket, file_name);
+    serve_local_file(client_socket, http_method, file_name, http_type);
     //}
 }
 
-void serve_local_file(int client_socket, const char *path) {
+void serve_local_file(int client_socket, const char *method, const char *path, const char *type) {
     // TODO: Properly implement serving of local files
     // The following code returns a dummy response for all requests
     // but it should give you a rough idea about what a proper response looks like
@@ -194,82 +194,120 @@ void serve_local_file(int client_socket, const char *path) {
     // (When the requested file does not exist):
     // * Generate a correct response
 
-    // get file type DOESNT WORK RN
-    // const char *ftype = path;
-    // int i = 0;
-    // while (ftype[i] != '.' && ftype[i] != 0) {
-    //     i++;
-    // }
-    // int file_type = BINARY_FILE;
-    // if (ftype[i] == '.') {
-    //     i++;
-    //     char* fexten;
-    //     strcpy(fexten, &ftype[i]);
-    //     if (strcmp(fexten, "txt") == 0) {
-    //         file_type = TXT_FILE;
-    //     }
-    //     else if (strcmp(fexten, "html") == 0) {
-    //         file_type = HTML_FILE;
-    //     }
-    //     else if (strcmp(fexten, "jpg") == 0) {
-    //         file_type = JPG_FILE;
-    //     }
-    // }
-    // printf("FILE TYPE EXTENSTION: %d\n", file_type);
+    // get file type
+    int file_type;
+    char *content_type;
+    if ((content_type = malloc(100)) == NULL) {
+        // ERROR - malloc failed
+        fprintf(stderr, "MEMORY ALLOCATION ERROR");
+        exit(1);
+    }
+    if (strstr(path, ".txt") != NULL) {
+        file_type = TXT_FILE;
+        strcpy(content_type, "Content-Type: text/plain; charset=UTF-8\r\n");
+    }
+    else if (strstr(path, ".html") != NULL) {
+        file_type = HTML_FILE;
+        strcpy(content_type, "Content-Type: text/html; charset=UTF-8\r\n");
+    }
+    else if (strstr(path, ".jpg") != NULL || strstr(path, ".jpeg") != NULL) {
+        file_type = JPG_FILE;
+        strcpy(content_type, "Content-Type: image/jpeg\r\n");
+    }
+    else {
+        file_type = BINARY_FILE;
+        strcpy(content_type, "Content-Type: application/octet-stream\r\n");
+    }
+    printf("file type: %d\n", file_type);
 
     // open file
-    FILE* fptr;
-    if ((fptr = fopen(path, "rb")) == NULL) {
+    int fd;
+    if ((fd = open(path, O_RDONLY)) < 0) {
         // ERROR - can't open file
         printf("FILE OPENING ERROR");
         exit(1);
     }
 
+    // get file info
+    struct stat st_str;
+    fstat(fd, &st_str);
+
     // get file length
-    fseek(fptr, 0, SEEK_END);
-    long flen = ftell(fptr);
-    rewind(fptr);
-    
+    off_t flen = st_str.st_size;
+    printf("file length: %jd\n", (intmax_t)flen);
+
     // get data from file
-    char* data_buffer;
-    if ((data_buffer = malloc((flen) * sizeof(char))) == NULL) {
+    char *data_buffer;
+    if ((data_buffer = malloc(flen * sizeof(char) + 1)) == NULL) {
         // ERROR - malloc failed
-        printf("MEMORY ALLOCATION ERROR");
+        fprintf(stderr, "MEMORY ALLOCATION ERROR");
         exit(1);
     }
-    while (fread(data_buffer, flen, sizeof(char), fptr) != 0) {
-        // keep reading
-    }
-    // unsigned int i = 0;
-    // while (fread(&data_buffer[i], 1, 1, fptr) == 1) {
-    //     i++;
-    // }
-    printf("file data: %s\n", data_buffer);
-    fclose(fptr);
+    memset(data_buffer, 0, flen + 1);
 
+    int i = 0;
+    if (read(fd, data_buffer, flen) < 0) {
+        // ERROR - read failed
+        fprintf(stderr, "READ ERROR");
+        exit(1);
+    }
+    printf("file data: \n%s", data_buffer);
+
+    // get file length as a string
     char *filelen;
-    sprintf(filelen, "%ld", flen);
+    sprintf(filelen, "%jd", (intmax_t)flen);
 
-    char* response;
-    if ((response = malloc(BUFFER_SIZE)) == NULL) {
-        // ERROR - malloc failed
-        printf("MEMORY ALLOCATION ERROR");
+    // get current time
+    char gmttime[1000];
+    time_t t = time(0);
+    struct tm tm_str = *gmtime(&t);
+    strftime(gmttime, sizeof(gmttime), "Date: %a, %d %b %Y %H:%M:%S GMT\r\n", &tm_str);
+
+    // get server name
+    char serv_name[1000];
+    struct utsname server;
+    uname(&server);
+    sprintf(serv_name, "Server: %s/%s (%s)\r\n", server.nodename, server.release, server.sysname);
+
+    // get last modified time
+    char modtime[1000];
+    struct tm mod_time = *gmtime(&st_str.st_mtime);
+    strftime(modtime, sizeof(modtime), "Last-Modified: %a, %d %b %Y %H:%M:%S GMT\r\n", &mod_time);
+
+    if (close(fd) < 0) {
+        // ERROR - can't close file
+        fprintf(stderr, "FILE CLOSING ERROR");
         exit(1);
     }
 
-    char header_lines[] = 
-                    "HTTP/1.1 200 OK\r\n"
-                    // "Content-Type: application/octet-stream\r\n"
-                    "Content-Type: text/plain; charset=UTF-8\r\n"
-                    "Content-Type: text/html; charset=UTF-8\r\n"
-                    // "Content-Type: image/jpeg\r\n"
-                    // "Content-Type: multipart/form-data\r\n"
-                    "Content-Length: ";
-    char temp[] = "\r\n\r\n";
+    char *response;
+    if ((response = malloc(((BUFFER_SIZE * 2) * sizeof(char)))) == NULL) {
+        // ERROR - malloc failed
+        fprintf(stderr, "MEMORY ALLOCATION ERROR");
+        exit(1);
+    }
 
-    strcat(response, header_lines);
+    // char header_lines[] = 
+    //                 "HTTP/1.1 200 OK\r\n"
+    //                 // "Content-Type: application/octet-stream\r\n"
+    //                 "Content-Type: text/plain; charset=UTF-8\r\n"
+    //                 "Content-Type: text/html; charset=UTF-8\r\n"
+    //                 // "Content-Type: image/jpeg\r\n"
+    //                 // "Content-Type: multipart/form-data\r\n"
+    //                 "Content-Length: ";
+    // char temp[] = "\r\n\r\n";
+
+    strcpy(response, type);
+    strcat(response, " 200 OK\r\nDate: ");
+    strcat(response, gmttime);
+    strcat(response, serv_name);
+    strcat(response, modtime);
+    // strcat(response, header_lines);
+    strcat(response, content_type);
+    strcat(response, "Content-Length: ");
     strcat(response, filelen);
-    strcat(response, temp);
+    strcat(response, "\r\nConnection: keep-alive\r\n\r\n");
+    // strcat(response, temp);
     strcat(response, data_buffer);
     // strcat(response, "this is a sample test file");
 
