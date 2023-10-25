@@ -263,7 +263,7 @@ void serve_local_file(int client_socket, const char *path) {
                     "Content-Type: text/plain; charset=UTF-8\r\n"
                     "Content-Type: text/html; charset=UTF-8\r\n"
                     "Content-Type: image/jpeg\r\n"
-                    "Content-Type: multipart/form-data\r\n"
+                    // "Content-Type: multipart/form-data\r\n"
                     "Content-Length: ";
     char temp[] = "\r\n\r\n";
 
