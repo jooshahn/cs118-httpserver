@@ -237,8 +237,12 @@ void serve_local_file(int client_socket, const char *path) {
         printf("MEMORY ALLOCATION ERROR");
         exit(1);
     }
-    while (fread(data_buffer, flen, sizeof(char), fptr) != 0) {
-        // keep reading
+    // while (fread(data_buffer, flen, sizeof(char), fptr) != 0) {
+    //     // keep reading
+    // }
+    unsigned int i = 0;
+    while (fread(&data_buffer[i], 1, 1, fptr) == 1) {
+        i++;
     }
     printf("file data: %s\n", data_buffer);
     fclose(fptr);
@@ -255,10 +259,11 @@ void serve_local_file(int client_socket, const char *path) {
 
     char header_lines[] = 
                     "HTTP/1.1 200 OK\r\n"
+                    // "Content-Type: application/octet-stream\r\n"
                     "Content-Type: text/plain; charset=UTF-8\r\n"
                     "Content-Type: text/html; charset=UTF-8\r\n"
-                    // "Content-Type: image/jpg\r\n"
-                    // "Content-Type: application/octet-stream\r\n"
+                    "Content-Type: image/jpeg\r\n"
+                    "Content-Type: multipart/form-data\r\n"
                     "Content-Length: ";
     char temp[] = "\r\n\r\n";
 
@@ -266,6 +271,7 @@ void serve_local_file(int client_socket, const char *path) {
     strcat(response, filelen);
     strcat(response, temp);
     strcat(response, data_buffer);
+    // strcat(response, "this is a sample test file");
 
     printf("%s", response);  // print HTTP response
 
