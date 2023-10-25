@@ -24,7 +24,8 @@
 #define HTML_FILE 2
 #define JPG_FILE 3
 
-struct server_app {
+struct server_app
+{
     // Parameters of the server
     // Local port of HTTP server
     uint16_t server_port;
@@ -50,7 +51,8 @@ int main(int argc, char *argv[])
     parse_args(argc, argv, &app);
 
     server_socket = socket(AF_INET, SOCK_STREAM, 0);
-    if (server_socket == -1) {
+    if (server_socket == -1)
+    {
         perror("socket failed");
         exit(EXIT_FAILURE);
     }
@@ -64,25 +66,29 @@ int main(int argc, char *argv[])
     int optval = 1;
     setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
 
-    if (bind(server_socket, (struct sockaddr*)&server_addr, sizeof(server_addr)) == -1) {
+    if (bind(server_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1)
+    {
         perror("bind failed");
         exit(EXIT_FAILURE);
     }
 
-    if (listen(server_socket, 10) == -1) {
+    if (listen(server_socket, 10) == -1)
+    {
         perror("listen failed");
         exit(EXIT_FAILURE);
     }
 
     printf("Server listening on port %d\n", app.server_port);
 
-    while (1) {
-        client_socket = accept(server_socket, (struct sockaddr*)&client_addr, &client_len);
-        if (client_socket == -1) {
+    while (1)
+    {
+        client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &client_len);
+        if (client_socket == -1)
+        {
             perror("accept failed");
             continue;
         }
-        
+
         printf("Accepted connection from %s:%d\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
         handle_request(&app, client_socket);
         close(client_socket);
@@ -100,8 +106,10 @@ void parse_args(int argc, char *argv[], struct server_app *app)
     app->remote_host = NULL;
     app->remote_port = DEFAULT_REMOTE_PORT;
 
-    while ((opt = getopt(argc, argv, "b:r:p:")) != -1) {
-        switch (opt) {
+    while ((opt = getopt(argc, argv, "b:r:p:")) != -1)
+    {
+        switch (opt)
+        {
         case 'b':
             app->server_port = atoi(optarg);
             break;
@@ -118,12 +126,14 @@ void parse_args(int argc, char *argv[], struct server_app *app)
         }
     }
 
-    if (app->remote_host == NULL) {
+    if (app->remote_host == NULL)
+    {
         app->remote_host = strdup(DEFAULT_REMOTE_HOST);
     }
 }
 
-void handle_request(struct server_app *app, int client_socket) {
+void handle_request(struct server_app *app, int client_socket)
+{
     char buffer[BUFFER_SIZE];
     ssize_t bytes_read;
 
@@ -133,8 +143,9 @@ void handle_request(struct server_app *app, int client_socket) {
     // once as a whole.
     // However, the current version suffices for our testing.
     bytes_read = recv(client_socket, buffer, sizeof(buffer) - 1, 0);
-    if (bytes_read <= 0) {
-        return;  // Connection closed or error
+    if (bytes_read <= 0)
+    {
+        return; // Connection closed or error
     }
 
     buffer[bytes_read] = '\0';
@@ -147,32 +158,32 @@ void handle_request(struct server_app *app, int client_socket) {
 
     // printf("%s", request); // print out of HTTP request message from server
 
-
-    char* component;
+    char *component;
 
     // get http method
     char http_method[BUFFER_SIZE];
-	component = strtok(request, " \r\n");
-	strcpy(http_method, component);
+    component = strtok(request, " \r\n");
+    strcpy(http_method, component);
 
     // get file path name
     char file_name[BUFFER_SIZE];
-	component = strtok(NULL, " \r\n");
+    component = strtok(NULL, " \r\n");
     strcpy(file_name, ".");
-	strcat(file_name, component);
-    if (strcmp(file_name, "./") == 0) {
+    strcat(file_name, component);
+    if (strcmp(file_name, "./") == 0)
+    {
         strcpy(file_name, "./index.html");
     }
 
     // get http type
     char http_type[BUFFER_SIZE];
-	component = strtok(NULL, " \r\n");
-	strcpy(http_type, component);
+    component = strtok(NULL, " \r\n");
+    strcpy(http_type, component);
 
     // print out http header components
     // printf("HTTP method: %s\n", http_method);
-	// printf("file name: %s\n", file_name);
-	// printf("HTTP type: %s\n", http_type);
+    // printf("file name: %s\n", file_name);
+    // printf("HTTP type: %s\n", http_type);
 
     // TODO: Implement proxy and call the function under condition
     // specified in the spec
@@ -183,11 +194,12 @@ void handle_request(struct server_app *app, int client_socket) {
     //}
 }
 
-void serve_local_file(int client_socket, const char *method, const char *path, const char *type) {
+void serve_local_file(int client_socket, const char *method, const char *path, const char *type)
+{
     // TODO: Properly implement serving of local files
     // The following code returns a dummy response for all requests
     // but it should give you a rough idea about what a proper response looks like
-    // What you need to do 
+    // What you need to do
     // (when the requested file exists):
     // * Open the requested file
     // * Build proper response headers (see details in the spec), and send them
@@ -198,24 +210,29 @@ void serve_local_file(int client_socket, const char *method, const char *path, c
     // get file type
     int file_type;
     char *content_type;
-    if ((content_type = malloc(100)) == NULL) {
+    if ((content_type = malloc(100)) == NULL)
+    {
         // ERROR - malloc failed
         fprintf(stderr, "MEMORY ALLOCATION ERROR");
         exit(1);
     }
-    if (strstr(path, ".txt") != NULL) {
+    if (strstr(path, ".txt") != NULL)
+    {
         file_type = TXT_FILE;
         strcpy(content_type, "Content-Type: text/plain; charset=UTF-8\r\n");
     }
-    else if (strstr(path, ".html") != NULL) {
+    else if (strstr(path, ".html") != NULL)
+    {
         file_type = HTML_FILE;
         strcpy(content_type, "Content-Type: text/html; charset=UTF-8\r\n");
     }
-    else if (strstr(path, ".jpg") != NULL || strstr(path, ".jpeg") != NULL) {
+    else if (strstr(path, ".jpg") != NULL || strstr(path, ".jpeg") != NULL)
+    {
         file_type = JPG_FILE;
         strcpy(content_type, "Content-Type: image/jpeg\r\n");
     }
-    else {
+    else
+    {
         file_type = BINARY_FILE;
         strcpy(content_type, "Content-Type: application/octet-stream\r\n");
     }
@@ -223,7 +240,8 @@ void serve_local_file(int client_socket, const char *method, const char *path, c
 
     // open file
     int fd;
-    if ((fd = open(path, O_RDONLY)) < 0) {
+    if ((fd = open(path, O_RDONLY)) < 0)
+    {
         // ERROR - can't open file
         fprintf(stderr, "FILE OPENING ERROR");
         exit(1);
@@ -239,7 +257,8 @@ void serve_local_file(int client_socket, const char *method, const char *path, c
 
     // get data from file
     char *data_buffer;
-    if ((data_buffer = malloc(flen * sizeof(char) + 1)) == NULL) {
+    if ((data_buffer = malloc(flen * sizeof(char) + 1)) == NULL)
+    {
         // ERROR - malloc failed
         fprintf(stderr, "MEMORY ALLOCATION ERROR");
         exit(1);
@@ -247,7 +266,8 @@ void serve_local_file(int client_socket, const char *method, const char *path, c
     memset(data_buffer, 0, flen + 1);
 
     int i = 0;
-    if (read(fd, data_buffer, flen) < 0) {
+    if (read(fd, data_buffer, flen) < 0)
+    {
         // ERROR - read failed
         fprintf(stderr, "READ ERROR");
         exit(1);
@@ -256,6 +276,11 @@ void serve_local_file(int client_socket, const char *method, const char *path, c
 
     // get file length as a string
     char *filelen;
+    if ((filelen = malloc(100)) == NULL)
+    {
+        perror("MEMORY ALLOCATION ERROR");
+        exit(EXIT_FAILURE);
+    }
     sprintf(filelen, "%jd", (intmax_t)flen);
 
     // get current time
@@ -275,20 +300,22 @@ void serve_local_file(int client_socket, const char *method, const char *path, c
     struct tm mod_time = *gmtime(&st_str.st_mtime);
     strftime(modtime, sizeof(modtime), "Last-Modified: %a, %d %b %Y %H:%M:%S GMT\r\n", &mod_time);
 
-    if (close(fd) < 0) {
+    if (close(fd) < 0)
+    {
         // ERROR - can't close file
         fprintf(stderr, "FILE CLOSING ERROR");
         exit(1);
     }
 
     char *response;
-    if ((response = malloc(((BUFFER_SIZE * 2) * sizeof(char)))) == NULL) {
+    if ((response = malloc(((BUFFER_SIZE * 2) * sizeof(char)))) == NULL)
+    {
         // ERROR - malloc failed
         fprintf(stderr, "MEMORY ALLOCATION ERROR");
         exit(1);
     }
 
-    // char header_lines[] = 
+    // char header_lines[] =
     //                 "HTTP/1.1 200 OK\r\n"
     //                 // "Content-Type: application/octet-stream\r\n"
     //                 "Content-Type: text/plain; charset=UTF-8\r\n"
@@ -312,12 +339,13 @@ void serve_local_file(int client_socket, const char *method, const char *path, c
     strcat(response, data_buffer);
     // strcat(response, "this is a sample test file");
 
-    // printf("%s", response);  // print HTTP response
+    printf("%s\n", response); // print HTTP response
 
     send(client_socket, response, strlen(response), 0);
 }
 
-void proxy_remote_file(struct server_app *app, int client_socket, const char *request) {
+void proxy_remote_file(struct server_app *app, int client_socket, const char *request)
+{
     // TODO: Implement proxy request and replace the following code
     // What's needed:
     // * Connect to remote server (app->remote_server/app->remote_port)
