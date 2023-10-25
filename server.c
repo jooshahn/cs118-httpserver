@@ -144,7 +144,7 @@ void handle_request(struct server_app *app, int client_socket) {
     // TODO: Parse the header and extract essential fields, e.g. file name
     // Hint: if the requested path is "/" (root), default to index.html
 
-    printf("%s", request); // print out of HTTP request message from server
+    // printf("%s", request); // print out of HTTP request message from server
 
 
     char* component;
@@ -169,9 +169,9 @@ void handle_request(struct server_app *app, int client_socket) {
 	strcpy(http_type, component);
 
     // print out http header components
-    printf("HTTP method: %s\n", http_method);
-	printf("file name: %s\n", file_name);
-	printf("HTTP type: %s\n", http_type);
+    // printf("HTTP method: %s\n", http_method);
+	// printf("file name: %s\n", file_name);
+	// printf("HTTP type: %s\n", http_type);
 
     // TODO: Implement proxy and call the function under condition
     // specified in the spec
@@ -218,7 +218,7 @@ void serve_local_file(int client_socket, const char *method, const char *path, c
         file_type = BINARY_FILE;
         strcpy(content_type, "Content-Type: application/octet-stream\r\n");
     }
-    printf("file type: %d\n", file_type);
+    // printf("file type: %d\n", file_type);
 
     // open file
     int fd;
@@ -234,7 +234,7 @@ void serve_local_file(int client_socket, const char *method, const char *path, c
 
     // get file length
     off_t flen = st_str.st_size;
-    printf("file length: %jd\n", (intmax_t)flen);
+    // printf("file length: %jd\n", (intmax_t)flen);
 
     // get data from file
     char *data_buffer;
@@ -251,7 +251,7 @@ void serve_local_file(int client_socket, const char *method, const char *path, c
         fprintf(stderr, "READ ERROR");
         exit(1);
     }
-    printf("file data: \n%s\n", data_buffer);
+    // printf("file data: \n%s\n", data_buffer);
 
     // get file length as a string
     char *filelen;
@@ -311,7 +311,7 @@ void serve_local_file(int client_socket, const char *method, const char *path, c
     strcat(response, data_buffer);
     // strcat(response, "this is a sample test file");
 
-    printf("%s", response);  // print HTTP response
+    // printf("%s", response);  // print HTTP response
 
     send(client_socket, response, strlen(response), 0);
 }
