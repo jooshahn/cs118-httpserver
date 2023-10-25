@@ -224,7 +224,7 @@ void serve_local_file(int client_socket, const char *method, const char *path, c
     int fd;
     if ((fd = open(path, O_RDONLY)) < 0) {
         // ERROR - can't open file
-        printf("FILE OPENING ERROR");
+        fprintf(stderr, "FILE OPENING ERROR");
         exit(1);
     }
 
@@ -251,7 +251,7 @@ void serve_local_file(int client_socket, const char *method, const char *path, c
         fprintf(stderr, "READ ERROR");
         exit(1);
     }
-    printf("file data: \n%s", data_buffer);
+    printf("file data: \n%s\n", data_buffer);
 
     // get file length as a string
     char *filelen;
@@ -298,7 +298,7 @@ void serve_local_file(int client_socket, const char *method, const char *path, c
     // char temp[] = "\r\n\r\n";
 
     strcpy(response, type);
-    strcat(response, " 200 OK\r\nDate: ");
+    strcat(response, " 200 OK\r\n");
     strcat(response, gmttime);
     strcat(response, serv_name);
     strcat(response, modtime);
