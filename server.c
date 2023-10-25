@@ -9,15 +9,15 @@
 #include <arpa/inet.h>
 #include <sys/socket.h>
 
-/**
- * Project 1 starter code
- * All parts needed to be changed/added are marked with TODO
- */
-
 #define BUFFER_SIZE 1024
 #define DEFAULT_SERVER_PORT 8081
 #define DEFAULT_REMOTE_HOST "131.179.176.34"
 #define DEFAULT_REMOTE_PORT 5001
+
+#define BINARY_FILE 0
+#define TXT_FILE 1
+#define HTML_FILE 2
+#define JPG_FILE 3
 
 struct server_app {
     // Parameters of the server
@@ -29,16 +29,11 @@ struct server_app {
     uint16_t remote_port;
 };
 
-// The following function is implemented for you and doesn't need
-// to be change
 void parse_args(int argc, char *argv[], struct server_app *app);
-
-// The following functions need to be updated
 void handle_request(struct server_app *app, int client_socket);
 void serve_local_file(int client_socket, const char *path);
 void proxy_remote_file(struct server_app *app, int client_socket, const char *path);
 
-// The main function is provided and no change is needed
 int main(int argc, char *argv[])
 {
     struct server_app app;
@@ -146,6 +141,7 @@ void handle_request(struct server_app *app, int client_socket) {
     // Hint: if the requested path is "/" (root), default to index.html
     printf("%s", request); // print out of HTTP request message from server
 
+    // get request method
     char *curr = request;
     char method[5];
     int i;
@@ -154,8 +150,8 @@ void handle_request(struct server_app *app, int client_socket) {
     }
     method[i] = '\0';
     i++;
-    // printf("%s\n", method); // print out request type
 
+    // get file path
     char file_name[] = "./index.html";
     if (curr[i + 1] != ' ') {
         int j;
@@ -165,7 +161,17 @@ void handle_request(struct server_app *app, int client_socket) {
         file_name[j] = '\0';
     }
     i++;
-    // printf("%s\n", file_name); // print out file path
+
+    // // get HTTP protocol
+    // while (curr[i] != '/') {
+    //     i++;
+    // }
+    // i++;
+    // char http_prot[4];
+    // for (int k = 0; k < 3; i++, k++) {
+    //     http_prot[k] = curr[i];
+    // }
+    // http_prot[3] = '\0';
 
     // TODO: Implement proxy and call the function under condition
     // specified in the spec
@@ -188,6 +194,29 @@ void serve_local_file(int client_socket, const char *path) {
     // (When the requested file does not exist):
     // * Generate a correct response
 
+    // get file type DOESNT WORK RN
+    // const char *ftype = path;
+    // int i = 0;
+    // while (ftype[i] != '.' && ftype[i] != 0) {
+    //     i++;
+    // }
+    // int file_type = BINARY_FILE;
+    // if (ftype[i] == '.') {
+    //     i++;
+    //     char* fexten;
+    //     strcpy(fexten, &ftype[i]);
+    //     if (strcmp(fexten, "txt") == 0) {
+    //         file_type = TXT_FILE;
+    //     }
+    //     else if (strcmp(fexten, "html") == 0) {
+    //         file_type = HTML_FILE;
+    //     }
+    //     else if (strcmp(fexten, "jpg") == 0) {
+    //         file_type = JPG_FILE;
+    //     }
+    // }
+    // printf("FILE TYPE EXTENSTION: %d\n", file_type);
+
     // open file
     FILE* fptr;
     if ((fptr = fopen(path, "rb")) == NULL) {
@@ -208,8 +237,12 @@ void serve_local_file(int client_socket, const char *path) {
         printf("MEMORY ALLOCATION ERROR");
         exit(1);
     }
-    while (fread(data_buffer, flen, sizeof(char), fptr) != 0) {
-        // keep reading
+    // while (fread(data_buffer, flen, sizeof(char), fptr) != 0) {
+    //     // keep reading
+    // }
+    unsigned int i = 0;
+    while (fread(&data_buffer[i], 1, 1, fptr) == 1) {
+        i++;
     }
     printf("file data: %s\n", data_buffer);
     fclose(fptr);
@@ -224,20 +257,23 @@ void serve_local_file(int client_socket, const char *path) {
         exit(1);
     }
 
-    char begin_response[] = 
+    char header_lines[] = 
                     "HTTP/1.1 200 OK\r\n"
+                    // "Content-Type: application/octet-stream\r\n"
                     "Content-Type: text/plain; charset=UTF-8\r\n"
                     "Content-Type: text/html; charset=UTF-8\r\n"
-                    "Content-Type: image/jpg\r\n"
+                    "Content-Type: image/jpeg\r\n"
+                    "Content-Type: multipart/form-data\r\n"
                     "Content-Length: ";
     char temp[] = "\r\n\r\n";
 
-    strcat(response, begin_response);
+    strcat(response, header_lines);
     strcat(response, filelen);
     strcat(response, temp);
     strcat(response, data_buffer);
+    // strcat(response, "this is a sample test file");
 
-    printf("%s", response);
+    printf("%s", response);  // print HTTP response
 
     send(client_socket, response, strlen(response), 0);
 }
