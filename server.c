@@ -12,6 +12,7 @@
 #include <sys/utsname.h>
 #include <fcntl.h>
 #include <time.h>
+#include <inttypes.h>
 
 #define BUFFER_SIZE 1024
 #define DEFAULT_SERVER_PORT 8081
