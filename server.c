@@ -299,7 +299,7 @@ void serve_local_file(int client_socket, const char *method, const char *path, c
     }
 
     char header_lines[BUFFER_SIZE];
-    sprintf(header_lines, "%s 200 OK\r\n%sContent-Length: %d\r\nConnection: keep-aliv\r\n\r\n",
+    sprintf(header_lines, "%s 200 OK\r\n%sContent-Length: %d\r\nConnection: keep-alive\r\n\r\n",
             http_type, content_type, flen);
 
     // printf("%s\n", response); // print HTTP response
@@ -321,8 +321,37 @@ void proxy_remote_file(struct server_app *app, int client_socket, const char *re
     // * When connection to the remote server fail, properly generate
     // HTTP 502 "Bad Gateway" response
 
-    app->remote_host = DEFAULT_REMOTE_HOST;
-    app->remote_port = DEFAULT_REMOTE_PORT;
+    int new_socket;
+    struct sockaddr_in server_addr;
+    char buffer[BUFFER_SIZE];
+
+    // creating socket
+    new_socket = socket(AF_INET, SOCK_STREAM, 0);
+
+    if (new_socket < 0)
+    {
+        perror("Socket creation failed");
+        exit(EXIT_FAILURE);
+    }
+    printf("new socket: %i\n", new_socket);
+    printf("client socket: %i\n", client_socket);
+
+    // setup server address
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(app->remote_port);
+    server_addr.sin_addr.s_addr = inet_addr(app->remote_host);
+
+    // printf("connect: %d\n", connect(new_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)));
+
+    if (connect(new_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0)
+    {
+        perror("Connection failed");
+        exit(EXIT_FAILURE);
+    }
+
+    // printf("connected! %d\n", new_socket);
+
+    close(new_socket);
 
     char response[] = "HTTP/1.0 501 Not Implemented\r\n\r\n";
     send(client_socket, response, strlen(response), 0);
