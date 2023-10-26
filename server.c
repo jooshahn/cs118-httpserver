@@ -151,14 +151,26 @@ void handle_request(struct server_app *app, int client_socket)
     buffer[bytes_read] = '\0';
     // copy buffer to a new string
     char *request = malloc(strlen(buffer) + 1);
+    if (request == NULL)
+    {
+        // ERROR - malloc failed
+        fprintf(stderr, "MEMORY ALLOCATION ERROR");
+        exit(1);
+    }
     strcpy(request, buffer);
 
     // TODO: Parse the header and extract essential fields, e.g. file name
     // Hint: if the requested path is "/" (root), default to index.html
 
-    // printf("%s", request); // print out of HTTP request message from server
+    printf("%s\n", request); // print out of HTTP request message from server
 
-    char *component;
+    char *component = malloc(BUFFER_SIZE);
+    if (component == NULL)
+    {
+        // ERROR - malloc failed
+        fprintf(stderr, "MEMORY ALLOCATION ERROR");
+        exit(1);
+    }
 
     // get http method
     char http_method[BUFFER_SIZE];
@@ -166,24 +178,39 @@ void handle_request(struct server_app *app, int client_socket)
     strcpy(http_method, component);
 
     // get file path name
+    char fnbuf[BUFFER_SIZE];
     char file_name[BUFFER_SIZE];
     component = strtok(NULL, " \r\n");
-    strcpy(file_name, ".");
-    strcat(file_name, component);
-    if (strcmp(file_name, "./") == 0)
+    sprintf(fnbuf, ".");
+    strcat(fnbuf, component);
+    if (strcmp(fnbuf, "./") == 0)
     {
-        strcpy(file_name, "./index.html");
+        sprintf(file_name, "./index.html");
+    }
+    else {
+        // replace % encodings in file name
+        int j = 0;
+        int fnbuf_len = strlen(fnbuf);
+        for (int i = 0; i < fnbuf_len; i++, j++) {
+            if (fnbuf[i] == '%' && fnbuf[i + 1] == '2' && fnbuf[i + 2] == '0') {
+                file_name[j] = ' ';
+                i += 2;
+            }
+            else if (fnbuf[i] == '%' && fnbuf[i + 1] == '2' && fnbuf[i + 2] == '5') {
+                file_name[j] = '%';
+                i += 2;
+            }
+            else {
+                file_name[j] = fnbuf[i];
+            }
+        }
+        file_name[j] = '\0';
     }
 
     // get http type
     char http_type[BUFFER_SIZE];
     component = strtok(NULL, " \r\n");
     strcpy(http_type, component);
-
-    // print out http header components
-    // printf("HTTP method: %s\n", http_method);
-    // printf("file name: %s\n", file_name);
-    // printf("HTTP type: %s\n", http_type);
 
     // TODO: Implement proxy and call the function under condition
     // specified in the spec
@@ -208,35 +235,23 @@ void serve_local_file(int client_socket, const char *method, const char *path, c
     // * Generate a correct response
 
     // get file type
-    int file_type;
-    char *content_type;
-    if ((content_type = malloc(100)) == NULL)
-    {
-        // ERROR - malloc failed
-        fprintf(stderr, "MEMORY ALLOCATION ERROR");
-        exit(1);
-    }
+    char content_type[BUFFER_SIZE];
     if (strstr(path, ".txt") != NULL)
     {
-        file_type = TXT_FILE;
-        strcpy(content_type, "Content-Type: text/plain; charset=UTF-8\r\n");
+        sprintf(content_type, "Content-Type: text/plain; charset=UTF-8\r\n");
     }
-    else if (strstr(path, ".html") != NULL)
+    else if (strstr(path, ".html") != NULL || strstr(path, ".htm") != NULL)
     {
-        file_type = HTML_FILE;
-        strcpy(content_type, "Content-Type: text/html; charset=UTF-8\r\n");
+        sprintf(content_type, "Content-Type: text/html; charset=UTF-8\r\n");
     }
     else if (strstr(path, ".jpg") != NULL || strstr(path, ".jpeg") != NULL)
     {
-        file_type = JPG_FILE;
-        strcpy(content_type, "Content-Type: image/jpeg\r\n");
+        sprintf(content_type, "Content-Type: image/jpeg\r\n");
     }
     else
     {
-        file_type = BINARY_FILE;
-        strcpy(content_type, "Content-Type: application/octet-stream\r\n");
+        sprintf(content_type, "Content-Type: application/octet-stream\r\n");
     }
-    // printf("file type: %d\n", file_type);
 
     // open file
     int fd;
@@ -252,7 +267,7 @@ void serve_local_file(int client_socket, const char *method, const char *path, c
     fstat(fd, &st_str);
 
     // get file length
-    off_t flen = st_str.st_size;
+    int flen = st_str.st_size;
     // printf("file length: %jd\n", (intmax_t)flen);
 
     // get data from file
@@ -275,13 +290,13 @@ void serve_local_file(int client_socket, const char *method, const char *path, c
     // printf("file data: \n%s\n", data_buffer);
 
     // get file length as a string
-    char *filelen;
-    if ((filelen = malloc(100)) == NULL)
-    {
-        perror("MEMORY ALLOCATION ERROR");
-        exit(EXIT_FAILURE);
-    }
-    sprintf(filelen, "%jd", (intmax_t)flen);
+    // char *filelen;
+    // if ((filelen = malloc(100)) == NULL)
+    // {
+    //     perror("MEMORY ALLOCATION ERROR");
+    //     exit(EXIT_FAILURE);
+    // }
+    // sprintf(filelen, "%jd", (intmax_t)flen);
 
     // get current time
     char gmttime[1000];
@@ -307,13 +322,13 @@ void serve_local_file(int client_socket, const char *method, const char *path, c
         exit(1);
     }
 
-    char *response;
-    if ((response = malloc(((BUFFER_SIZE * 2) * sizeof(char)))) == NULL)
-    {
-        // ERROR - malloc failed
-        fprintf(stderr, "MEMORY ALLOCATION ERROR");
-        exit(1);
-    }
+    // char *response;
+    // if ((response = malloc(10485760)) == NULL) // 10 MiB
+    // {
+    //     // ERROR - malloc failed
+    //     fprintf(stderr, "MEMORY ALLOCATION ERROR");
+    //     exit(1);
+    // }
 
     // char header_lines[] =
     //                 "HTTP/1.1 200 OK\r\n"
@@ -325,23 +340,27 @@ void serve_local_file(int client_socket, const char *method, const char *path, c
     //                 "Content-Length: ";
     // char temp[] = "\r\n\r\n";
 
-    strcpy(response, type);
-    strcat(response, " 200 OK\r\n");
-    strcat(response, gmttime);
-    strcat(response, serv_name);
-    strcat(response, modtime);
-    // strcat(response, header_lines);
-    strcat(response, content_type);
-    strcat(response, "Content-Length: ");
-    strcat(response, filelen);
-    strcat(response, "\r\nConnection: keep-alive\r\n\r\n");
-    // strcat(response, temp);
-    strcat(response, data_buffer);
-    // strcat(response, "this is a sample test file");
+    char header_lines[BUFFER_SIZE];
+    sprintf(header_lines, "%s 200 OK\r\n%s%s%s%sContent-Length: %d\r\nConnection: keep-aliv\r\n\r\n", 
+            type, gmttime, serv_name, modtime, content_type, flen);
 
-    printf("%s\n", response); // print HTTP response
+    // strcpy(response, type);
+    // strcat(response, " 200 OK\r\n");
+    // strcat(response, gmttime);
+    // strcat(response, serv_name);
+    // strcat(response, modtime);
+    // strcat(response, content_type);
+    // strcat(response, "Content-Length: ");
+    // strcat(response, filelen);
+    // strcat(response, "\r\nConnection: keep-alive\r\n\r\n");
+    // strcat(response, data_buffer);
 
-    send(client_socket, response, strlen(response), 0);
+    // printf("%s\n", response); // print HTTP response
+
+    send(client_socket, header_lines, strlen(header_lines), 0);
+    send(client_socket, data_buffer, flen, 0);
+
+    free(data_buffer);
 }
 
 void proxy_remote_file(struct server_app *app, int client_socket, const char *request)
