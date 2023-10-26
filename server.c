@@ -19,11 +19,6 @@
 #define DEFAULT_REMOTE_HOST "131.179.176.34"
 #define DEFAULT_REMOTE_PORT 5001
 
-#define BINARY_FILE 0
-#define TXT_FILE 1
-#define HTML_FILE 2
-#define JPG_FILE 3
-
 struct server_app
 {
     // Parameters of the server
@@ -187,20 +182,25 @@ void handle_request(struct server_app *app, int client_socket)
     {
         sprintf(file_name, "./index.html");
     }
-    else {
+    else
+    {
         // replace % encodings in file name
         int j = 0;
         int fnbuf_len = strlen(fnbuf);
-        for (int i = 0; i < fnbuf_len; i++, j++) {
-            if (fnbuf[i] == '%' && fnbuf[i + 1] == '2' && fnbuf[i + 2] == '0') {
+        for (int i = 0; i < fnbuf_len; i++, j++)
+        {
+            if (fnbuf[i] == '%' && fnbuf[i + 1] == '2' && fnbuf[i + 2] == '0')
+            {
                 file_name[j] = ' ';
                 i += 2;
             }
-            else if (fnbuf[i] == '%' && fnbuf[i + 1] == '2' && fnbuf[i + 2] == '5') {
+            else if (fnbuf[i] == '%' && fnbuf[i + 1] == '2' && fnbuf[i + 2] == '5')
+            {
                 file_name[j] = '%';
                 i += 2;
             }
-            else {
+            else
+            {
                 file_name[j] = fnbuf[i];
             }
         }
@@ -233,11 +233,14 @@ void handle_request(struct server_app *app, int client_socket)
 
     // TODO: Implement proxy and call the function under condition
     // specified in the spec
-    // if (need_proxy(...)) {
-    //    proxy_remote_file(app, client_socket, file_name);
-    // } else {
-    serve_local_file(client_socket, http_method, file_name, http_type, content_type);
-    //}
+    if (strstr(file_name, ".ts") == 0)
+    {
+        proxy_remote_file(app, client_socket, file_name);
+    }
+    else
+    {
+        serve_local_file(client_socket, http_method, file_name, http_type, content_type);
+    }
 }
 
 void serve_local_file(int client_socket, const char *method, const char *path, const char *http_type, const char *content_type)
@@ -296,7 +299,7 @@ void serve_local_file(int client_socket, const char *method, const char *path, c
     }
 
     char header_lines[BUFFER_SIZE];
-    sprintf(header_lines, "%s 200 OK\r\n%sContent-Length: %d\r\nConnection: keep-aliv\r\n\r\n", 
+    sprintf(header_lines, "%s 200 OK\r\n%sContent-Length: %d\r\nConnection: keep-aliv\r\n\r\n",
             http_type, content_type, flen);
 
     // printf("%s\n", response); // print HTTP response
@@ -317,6 +320,9 @@ void proxy_remote_file(struct server_app *app, int client_socket, const char *re
     // Bonus:
     // * When connection to the remote server fail, properly generate
     // HTTP 502 "Bad Gateway" response
+
+    app->remote_host = DEFAULT_REMOTE_HOST;
+    app->remote_port = DEFAULT_REMOTE_PORT;
 
     char response[] = "HTTP/1.0 501 Not Implemented\r\n\r\n";
     send(client_socket, response, strlen(response), 0);
