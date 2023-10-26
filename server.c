@@ -33,7 +33,7 @@ struct server_app
 void parse_args(int argc, char *argv[], struct server_app *app);
 void handle_request(struct server_app *app, int client_socket);
 void serve_local_file(int client_socket, const char *method, const char *path, const char *http_type, const char *content_type);
-void proxy_remote_file(struct server_app *app, int client_socket, const char *path);
+void proxy_remote_file(struct server_app *app, int client_socket, const char *path, const char *http_type, const char *content_type, const char *request);
 
 int main(int argc, char *argv[])
 {
@@ -233,9 +233,9 @@ void handle_request(struct server_app *app, int client_socket)
 
     // TODO: Implement proxy and call the function under condition
     // specified in the spec
-    if (strstr(file_name, ".ts") == 0)
+    if (strstr(file_name, ".ts"))
     {
-        proxy_remote_file(app, client_socket, file_name);
+        proxy_remote_file(app, client_socket, file_name, http_type, content_type, buffer);
     }
     else
     {
@@ -264,8 +264,8 @@ void serve_local_file(int client_socket, const char *method, const char *path, c
         char fourzerofour[BUFFER_SIZE];
         char fourofour_response[BUFFER_SIZE];
         sprintf(fourofour_response, "<html><body>404 Not Found</body></html>");
-        sprintf(fourzerofour, "%s 404 Not Found\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Length: %d\r\nConnection: close\r\n\r\n", 
-            http_type, strlen(fourofour_response));
+        sprintf(fourzerofour, "%s 404 Not Found\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Length: %lu\r\nConnection: close\r\n\r\n",
+                http_type, strlen(fourofour_response));
         send(client_socket, fourzerofour, strlen(fourzerofour), 0);
         send(client_socket, fourofour_response, strlen(fourofour_response), 0);
         return;
@@ -305,7 +305,7 @@ void serve_local_file(int client_socket, const char *method, const char *path, c
     }
 
     char header_lines[BUFFER_SIZE];
-    sprintf(header_lines, "%s 200 OK\r\n%sContent-Length: %d\r\nConnection: keep-alive\r\n\r\n", 
+    sprintf(header_lines, "%s 200 OK\r\n%sContent-Length: %d\r\nConnection: keep-alive\r\n\r\n",
             http_type, content_type, flen);
 
     // printf("%s\n", response); // print HTTP response
@@ -316,7 +316,7 @@ void serve_local_file(int client_socket, const char *method, const char *path, c
     free(data_buffer);
 }
 
-void proxy_remote_file(struct server_app *app, int client_socket, const char *request)
+void proxy_remote_file(struct server_app *app, int client_socket, const char *path, const char *http_type, const char *content_type, const char *request)
 {
     // TODO: Implement proxy request and replace the following code
     // What's needed:
@@ -327,9 +327,73 @@ void proxy_remote_file(struct server_app *app, int client_socket, const char *re
     // * When connection to the remote server fail, properly generate
     // HTTP 502 "Bad Gateway" response
 
-    app->remote_host = DEFAULT_REMOTE_HOST;
-    app->remote_port = DEFAULT_REMOTE_PORT;
+    int new_socket;
+    struct sockaddr_in server_addr;
 
-    char response[] = "HTTP/1.0 501 Not Implemented\r\n\r\n";
-    send(client_socket, response, strlen(response), 0);
+    // creating socket
+    new_socket = socket(AF_INET, SOCK_STREAM, 0);
+
+    if (new_socket < 0)
+    {
+        perror("Socket creation failed");
+        exit(EXIT_FAILURE);
+    }
+    printf("new socket: %i\n", new_socket);
+    printf("client socket: %i\n", client_socket);
+
+    // setup server address
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(app->remote_port);
+    server_addr.sin_addr.s_addr = inet_addr(app->remote_host);
+
+    // printf("connect: %d\n", connect(new_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)));
+
+    if (connect(new_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0)
+    {
+        perror("Connection failed");
+        exit(EXIT_FAILURE);
+    }
+
+    printf("connected! %d\n", new_socket);
+    printf("req: %s\n", request);
+
+    if (send(new_socket, request, strlen(request), 0) < 0)
+    {
+        perror("SEND failed");
+        exit(EXIT_FAILURE);
+    }
+    printf("sent\n");
+    // forward binary data from server to client
+    // can't process data as text for a video or any binary data
+    char buffer[BUFFER_SIZE];
+    ssize_t bytes_read;
+
+    // char header_lines[BUFFER_SIZE];
+    // sprintf(header_lines, "%s 200 OK\r\n%sContent-Length: %d\r\nConnection: keep-alive\r\n\r\n",
+    //         http_type, content_type, sizeof(buffer));
+    // send(client_socket, header_lines, strlen(header_lines), 0);
+    // printf("header sent\n");
+
+    while ((bytes_read = recv(new_socket, buffer, sizeof(buffer), 0)) > 0)
+    {
+        if (bytes_read <= 0)
+        {
+            printf("error lol");
+            return; // Connection closed or error
+        }
+
+        // printf("BYTE READ: %zd\n", bytes_read);
+        send(client_socket, buffer, bytes_read, 0);
+        // printf("buffer: %s", buffer);
+    }
+
+    printf("all sent\n");
+
+    // printf("bytes received out: %d\n", bytes_received);
+
+    // char response[] = "HTTP/1.1 501 Not Implemented\r\n\r\n";
+    // send(client_socket, response, strlen(response), 0);
+    // send(client_socket, buffer, bytes_received, 0);
+    // close(client_socket);
+    // close(new_socket);
 }
