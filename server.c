@@ -295,7 +295,6 @@ void serve_local_file(int client_socket, const char *method, const char *path, c
         fprintf(stderr, "READ ERROR");
         exit(1);
     }
-    // printf("file data: \n%s\n", data_buffer);
 
     if (close(fd) < 0)
     {
@@ -335,65 +334,52 @@ void proxy_remote_file(struct server_app *app, int client_socket, const char *pa
 
     if (new_socket < 0)
     {
-        perror("Socket creation failed");
+        perror("SOCKET CREATION FAILED");
         exit(EXIT_FAILURE);
     }
-    printf("new socket: %i\n", new_socket);
-    printf("client socket: %i\n", client_socket);
 
     // setup server address
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(app->remote_port);
     server_addr.sin_addr.s_addr = inet_addr(app->remote_host);
 
-    // printf("connect: %d\n", connect(new_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)));
-
     if (connect(new_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0)
     {
-        perror("Connection failed");
-        exit(EXIT_FAILURE);
+        // ERROR: connection to the remote server failed
+        char bad_gateway[BUFFER_SIZE];
+        char bad_gateway_response[BUFFER_SIZE];
+        sprintf(bad_gateway_response, "<html><body>502 Bad Gateway</body></html>");
+        sprintf(bad_gateway, "%s 502 Bad Gateway\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Length: %lu\r\nConnection: close\r\n\r\n",
+                http_type, strlen(bad_gateway_response));
+        send(client_socket, bad_gateway, strlen(bad_gateway), 0);
+        send(client_socket, bad_gateway_response, strlen(bad_gateway_response), 0);
+        return;
     }
-
-    printf("connected! %d\n", new_socket);
-    printf("req: %s\n", request);
 
     if (send(new_socket, request, strlen(request), 0) < 0)
     {
-        perror("SEND failed");
+        perror("SEND FAILED");
         exit(EXIT_FAILURE);
     }
-    printf("sent\n");
+
     // forward binary data from server to client
     // can't process data as text for a video or any binary data
     char buffer[BUFFER_SIZE];
     ssize_t bytes_read;
 
-    // char header_lines[BUFFER_SIZE];
-    // sprintf(header_lines, "%s 200 OK\r\n%sContent-Length: %d\r\nConnection: keep-alive\r\n\r\n",
-    //         http_type, content_type, sizeof(buffer));
-    // send(client_socket, header_lines, strlen(header_lines), 0);
-    // printf("header sent\n");
-
     while ((bytes_read = recv(new_socket, buffer, sizeof(buffer), 0)) > 0)
     {
         if (bytes_read <= 0)
         {
-            printf("error lol");
-            return; // Connection closed or error
+            // Connection closed or error
+            printf("CONNECTION CLOSED OR ERROR");
+            return;
         }
 
-        // printf("BYTE READ: %zd\n", bytes_read);
         send(client_socket, buffer, bytes_read, 0);
-        // printf("buffer: %s", buffer);
     }
 
     printf("all sent\n");
-
-    // printf("bytes received out: %d\n", bytes_received);
-
-    // char response[] = "HTTP/1.1 501 Not Implemented\r\n\r\n";
-    // send(client_socket, response, strlen(response), 0);
-    // send(client_socket, buffer, bytes_received, 0);
     // close(client_socket);
     // close(new_socket);
 }
