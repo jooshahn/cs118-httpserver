@@ -260,9 +260,15 @@ void serve_local_file(int client_socket, const char *method, const char *path, c
     int fd;
     if ((fd = open(path, O_RDONLY)) < 0)
     {
-        // ERROR - can't open file
-        fprintf(stderr, "FILE OPENING ERROR");
-        exit(1);
+        // ERROR: file doesn't exist
+        char fourzerofour[BUFFER_SIZE];
+        char fourofour_response[BUFFER_SIZE];
+        sprintf(fourofour_response, "<html><body>404 Not Found</body></html>");
+        sprintf(fourzerofour, "%s 404 Not Found\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Length: %d\r\nConnection: close\r\n\r\n", 
+            http_type, strlen(fourofour_response));
+        send(client_socket, fourzerofour, strlen(fourzerofour), 0);
+        send(client_socket, fourofour_response, strlen(fourofour_response), 0);
+        return;
     }
 
     // get file info
@@ -299,7 +305,7 @@ void serve_local_file(int client_socket, const char *method, const char *path, c
     }
 
     char header_lines[BUFFER_SIZE];
-    sprintf(header_lines, "%s 200 OK\r\n%sContent-Length: %d\r\nConnection: keep-aliv\r\n\r\n",
+    sprintf(header_lines, "%s 200 OK\r\n%sContent-Length: %d\r\nConnection: keep-alive\r\n\r\n", 
             http_type, content_type, flen);
 
     // printf("%s\n", response); // print HTTP response
